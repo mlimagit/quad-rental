@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Quad Rental — Gestão de Frota</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f0f0; color: #111; font-size: 15px; }
+  .app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; background: #f0f0f0; }
+  .nav { background: #fff; border-bottom: 0.5px solid #e0e0e0; display: flex; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .nav-btn { flex: 1; padding: 12px 4px; border: none; background: transparent; font-size: 11px; font-weight: 500; color: #999; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; transition: color 0.2s; border-bottom: 2px solid transparent; }
+  .nav-btn.active { color: #1D9E75; border-bottom: 2px solid #1D9E75; }
+  .nav-icon { font-size: 20px; }
+  .screen { display: none; flex: 1; padding: 14px; }
+  .screen.active { display: block; }
+  .card { background: #fff; border: 0.5px solid #e0e0e0; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .card-title { font-size: 11px; font-weight: 600; color: #999; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.8px; }
+  .field { margin-bottom: 13px; }
+  .field label { display: block; font-size: 13px; color: #555; margin-bottom: 5px; font-weight: 500; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; background: #fff; color: #111; outline: none; font-family: inherit; -webkit-appearance: none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: #1D9E75; box-shadow: 0 0 0 3px rgba(29,158,117,0.12); }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .required { color: #E24B4A; }
+  .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; transition: opacity 0.2s, transform 0.1s; }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: #1D9E75; color: #fff; }
+  .btn-secondary { background: transparent; border: 1px solid #ccc; color: #333; }
+  .btn-danger { background: #E24B4A; color: #fff; }
+  .btn-sm { padding: 7px 13px; font-size: 12px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .metric { background: #fff; border-radius: 10px; padding: 14px; border: 0.5px solid #e0e0e0; }
+  .metric-label { font-size: 11px; color: #999; margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .metric-value { font-size: 24px; font-weight: 600; }
+  .metric-value.green { color: #1D9E75; }
+  .metric-value.red { color: #E24B4A; }
+  .metric-value.blue { color: #378ADD; }
+  .metric-value.amber { color: #BA7517; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+  .badge-green { background: #EAF3DE; color: #3B6D11; }
+  .badge-amber { background: #FAEEDA; color: #854F0B; }
+  .badge-red { background: #FCEBEB; color: #A32D2D; }
+  .badge-blue { background: #E6F1FB; color: #185FA5; }
+  .quad-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 0.5px solid #f0f0f0; }
+  .quad-item:last-child { border-bottom: none; }
+  .quad-info { flex: 1; }
+  .quad-name { font-weight: 600; font-size: 14px; }
+  .quad-plate { font-size: 12px; color: #888; margin-top: 3px; }
+  .quad-actions { display: flex; gap: 6px; }
+  .record { padding: 12px 0; border-bottom: 0.5px solid #f0f0f0; cursor: pointer; }
+  .record:last-child { border-bottom: none; }
+  .record-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+  .record-name { font-weight: 600; font-size: 14px; }
+  .record-detail { font-size: 12px; color: #888; line-height: 1.6; }
+  .contract-box { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 8px; padding: 16px; font-size: 13px; line-height: 1.8; color: #333; margin-bottom: 14px; max-height: 240px; overflow-y: auto; }
+  .contract-box h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; text-align: center; color: #111; }
+  .contract-box p { margin-bottom: 10px; }
+  .sig-wrapper { position: relative; border: 1.5px dashed #ccc; border-radius: 8px; height: 120px; background: #fafafa; margin-bottom: 8px; overflow: hidden; touch-action: none; }
+  .sig-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #bbb; pointer-events: none; }
+  canvas#sig-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #111; color: #fff; padding: 11px 22px; border-radius: 10px; font-size: 14px; z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-end; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 20px 20px 0 0; width: 100%; max-width: 480px; padding: 24px 20px; max-height: 92vh; overflow-y: auto; }
+  .modal-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 20px; }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+  .section-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; color: #111; }
+  .empty-state { text-align: center; padding: 32px 16px; color: #aaa; font-size: 14px; }
+  .km-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; background: #f8f8f8; border-radius: 8px; margin-bottom: 6px; }
+  .km-label { font-size: 13px; color: #888; }
+  .km-val { font-size: 14px; font-weight: 600; }
+  .app-header { background: #1D9E75; color: #fff; padding: 16px 16px 14px; text-align: center; }
+  .app-header h1 { font-size: 20px; font-weight: 700; }
+  .app-header p { font-size: 12px; opacity: 0.75; margin-top: 3px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="app-header">
+    <h1>🏍️ Quad Rental</h1>
+    <p>Sistema de Gestão de Frota</p>
+  </div>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="show('cliente')" id="nav-cliente"><span class="nav-icon">📝</span>Locação</button>
+    <button class="nav-btn" onclick="show('frota')" id="nav-frota"><span class="nav-icon">🏍️</span>Frota</button>
+    <button class="nav-btn" onclick="show('financeiro')" id="nav-financeiro"><span class="nav-icon">💰</span>Financeiro</button>
+    <button class="nav-btn" onclick="show('historico')" id="nav-historico"><span class="nav-icon">📁</span>Histórico</button>
+  </nav>
+
+  <!-- LOCAÇÃO -->
+  <div class="screen active" id="screen-cliente">
+    <br>
+    <p class="section-title">Nova Locação</p>
+    <div class="card">
+      <p class="card-title">👤 Dados do Locatário</p>
+      <div class="field"><label>Nome completo <span class="required">*</span></label><input type="text" id="c-nome" placeholder="Nome completo" autocomplete="name"></div>
+      <div class="field"><label>CPF <span class="required">*</span></label><input type="text" id="c-cpf" placeholder="000.000.000-00" oninput="maskCPF(this)" inputmode="numeric"></div>
+      <div class="field"><label>Data de nascimento <span class="required">*</span></label><input type="date" id="c-nasc"></div>
+      <div class="field"><label>Telefone / WhatsApp <span class="required">*</span></label><input type="tel" id="c-tel" placeholder="(00) 00000-0000" oninput="maskTel(this)"></div>
+      <div class="field"><label>E-mail</label><input type="email" id="c-email" placeholder="email@exemplo.com"></div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">🏠 Endereço de Residência</p>
+      <div class="field"><label>CEP</label><input type="text" id="c-cep" placeholder="00000-000" inputmode="numeric" oninput="maskCEP(this)"></div>
+      <div class="field"><label>Endereço completo <span class="required">*</span></label><input type="text" id="c-end" placeholder="Rua, número, complemento"></div>
+      <div class="field-row">
+        <div class="field"><label>Cidade <span class="required">*</span></label><input type="text" id="c-cidade" placeholder="Cidade"></div>
+        <div class="field"><label>Estado</label><input type="text" id="c-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">🪪 Dados da CNH</p>
+      <div class="field"><label>Número da CNH <span class="required">*</span></label><input type="text" id="c-cnh" placeholder="00000000000" inputmode="numeric"></div>
+      <div class="field-row">
+        <div class="field"><label>Categoria</label>
+          <select id="c-cnh-cat"><option value="">Categoria</option><option>A</option><option>AB</option><option>AC</option><option>AD</option><option>AE</option><option>B</option><option>C</option><option>D</option><option>E</option></select>
+        </div>
+        <div class="field"><label>Validade <span class="required">*</span></label><input type="date" id="c-cnh-val"></div>
+      </div>
+      <div class="field"><label>Órgão emissor / UF</label><input type="text" id="c-cnh-org" placeholder="Ex: DETRAN/SP"></div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">🏍️ Dados da Locação</p>
+      <div class="field"><label>Quadriciclo <span class="required">*</span></label>
+        <select id="c-quad"><option value="">Selecione o quadriciclo</option></select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Data/hora saída <span class="required">*</span></label><input type="datetime-local" id="c-dt-saida"></div>
+        <div class="field"><label>Previsão retorno</label><input type="datetime-local" id="c-dt-retorno"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>KM saída <span class="required">*</span></label><input type="number" id="c-km-saida" placeholder="0" inputmode="numeric"></div>
+        <div class="field"><label>KM retorno</label><input type="number" id="c-km-retorno" placeholder="Ao devolver" inputmode="numeric"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Valor (R$) <span class="required">*</span></label><input type="number" id="c-valor" placeholder="0,00" step="0.01" inputmode="decimal"></div>
+        <div class="field"><label>Forma de pagamento</label>
+          <select id="c-pgto"><option value="">Selecione</option><option>Dinheiro</option><option>PIX</option><option>Cartão débito</option><option>Cartão crédito</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Observações</label><textarea id="c-obs" placeholder="Acessórios entregues, estado do veículo, avarias pré-existentes..."></textarea></div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">📄 Contrato de Locação e Responsabilidade</p>
+      <div class="contract-box">
+        <h4>CONTRATO DE LOCAÇÃO DE QUADRICICLO E TERMO DE RESPONSABILIDADE</h4>
+        <p>Pelo presente instrumento particular, as partes abaixo identificadas celebram o presente Contrato de Locação de Quadriciclo, que se regerá pelas cláusulas e condições seguintes:</p>
+        <p><strong>1. OBJETO:</strong> O LOCADOR disponibiliza ao LOCATÁRIO, em regime de locação temporária, o veículo quadriciclo identificado neste formulário, pelo período e valor acordados.</p>
+        <p><strong>2. RESPONSABILIDADE DO LOCATÁRIO:</strong> O locatário declara ter pleno conhecimento das leis de trânsito vigentes e assume inteira responsabilidade por qualquer infração, acidente ou dano causado ao veículo ou a terceiros durante o período de locação, inclusive danos decorrentes de uso indevido.</p>
+        <p><strong>3. CONDIÇÕES DE USO:</strong> É vedado ao locatário: (a) trafegar em vias não permitidas para este tipo de veículo; (b) transportar passageiros além da capacidade do veículo; (c) realizar manobras de risco ou acrobacias; (d) conduzir sob influência de álcool ou quaisquer substâncias psicoativas; (e) sublocar o veículo a terceiros sem autorização.</p>
+        <p><strong>4. DANOS E AVARIAS:</strong> O locatário compromete-se a devolver o veículo nas mesmas condições em que o recebeu. Quaisquer danos ocorridos durante a locação serão de inteira responsabilidade do locatário, incluindo custos de reparo, reboque e lucros cessantes durante o período de imobilização do veículo.</p>
+        <p><strong>5. QUILOMETRAGEM:</strong> A quilometragem de saída e retorno será registrada e fará parte integrante deste contrato. Uso excessivo ou em percursos não autorizados poderá implicar cobrança adicional conforme tabela do locador.</p>
+        <p><strong>6. DOCUMENTAÇÃO:</strong> O locatário declara possuir Carteira Nacional de Habilitação (CNH) válida e na categoria exigida para condução do veículo, e autoriza a verificação de seus dados cadastrais junto aos órgãos competentes.</p>
+        <p><strong>7. EQUIPAMENTOS DE SEGURANÇA:</strong> O locatário obriga-se a utilizar capacete e demais equipamentos de proteção fornecidos ou exigidos pelo locador durante toda a utilização do veículo.</p>
+        <p><strong>8. DEVOLUÇÃO:</strong> O veículo deverá ser devolvido no local, data e horário combinados. O atraso na devolução sem aviso prévio implicará cobrança de diária adicional e poderá ser caracterizado como apropriação indébita.</p>
+        <p><strong>9. FORO:</strong> Fica eleito o foro da comarca local para dirimir quaisquer litígios oriundos do presente contrato, com renúncia a qualquer outro, por mais privilegiado que seja.</p>
+        <p>Ao assinar abaixo, o locatário declara ter lido, compreendido e concordado integralmente com todos os termos e condições deste contrato.</p>
+      </div>
+      <div class="field">
+        <label>Assinatura do Locatário</label>
+        <div class="sig-wrapper" id="sig-wrapper">
+          <div class="sig-placeholder" id="sig-placeholder">✍️ Assine aqui com o dedo</div>
+          <canvas id="sig-canvas"></canvas>
+        </div>
+        <button class="btn btn-secondary" onclick="clearSig()" style="width:auto;padding:8px 16px;font-size:13px;margin-top:0">Limpar assinatura</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveLocacao()">✅ Registrar Locação</button>
+    <div style="height:24px"></div>
+  </div>
+
+  <!-- FROTA -->
+  <div class="screen" id="screen-frota">
+    <br>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <p class="section-title" style="margin:0">Frota</p>
+      <button onclick="openAddQuad()" style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer">+ Adicionar</button>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">Total frota</div><div class="metric-value blue" id="m-total">0</div></div>
+      <div class="metric"><div class="metric-label">Em locação</div><div class="metric-value amber" id="m-locados">0</div></div>
+      <div class="metric"><div class="metric-label">Disponíveis</div><div class="metric-value green" id="m-disponiveis">0</div></div>
+      <div class="metric"><div class="metric-label">Manutenção</div><div class="metric-value red" id="m-manutencao">0</div></div>
+    </div>
+    <div class="card">
+      <p class="card-title">Veículos cadastrados</p>
+      <div id="quad-list"><p class="empty-state">Nenhum quadriciclo cadastrado ainda</p></div>
+    </div>
+    <div class="card">
+      <p class="card-title">💸 Registrar Despesa</p>
+      <div class="field"><label>Quadriciclo</label><select id="d-quad"><option value="">Selecione</option></select></div>
+      <div class="field-row">
+        <div class="field"><label>Tipo</label>
+          <select id="d-tipo"><option value="">Tipo</option><option>Manutenção</option><option>Combustível</option><option>Seguro</option><option>Limpeza</option><option>Peças</option><option>IPVA</option><option>Licenciamento</option><option>Outros</option></select>
+        </div>
+        <div class="field"><label>Valor (R$)</label><input type="number" id="d-valor" placeholder="0,00" step="0.01" inputmode="decimal"></div>
+      </div>
+      <div class="field"><label>Descrição</label><input type="text" id="d-desc" placeholder="Descrição da despesa"></div>
+      <div class="field"><label>Data</label><input type="date" id="d-data"></div>
+      <button class="btn btn-danger" onclick="saveDespesa()">Registrar Despesa</button>
+    </div>
+  </div>
+
+  <!-- FINANCEIRO -->
+  <div class="screen" id="screen-financeiro">
+    <br>
+    <p class="section-title">Painel Financeiro</p>
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">Receita total</div><div class="metric-value green" id="f-receita">R$ 0</div></div>
+      <div class="metric"><div class="metric-label">Despesas</div><div class="metric-value red" id="f-despesa">R$ 0</div></div>
+      <div class="metric" style="grid-column:span 2"><div class="metric-label">Lucro líquido</div><div class="metric-value green" id="f-lucro">R$ 0</div></div>
+    </div>
+    <div class="card">
+      <p class="card-title">Resultado por Quadriciclo</p>
+      <div id="f-por-quad"><p class="empty-state">Cadastre quadriciclos para ver o resultado</p></div>
+    </div>
+    <div class="card">
+      <p class="card-title">Últimas Despesas</p>
+      <div id="f-despesas-list"><p class="empty-state">Nenhuma despesa registrada</p></div>
+    </div>
+    <div class="card">
+      <p class="card-title">Últimas Receitas</p>
+      <div id="f-receitas-list"><p class="empty-state">Nenhuma locação registrada</p></div>
+    </div>
+  </div>
+
+  <!-- HISTÓRICO -->
+  <div class="screen" id="screen-historico">
+    <br>
+    <p class="section-title">Histórico de Locações</p>
+    <div class="card">
+      <div class="field" style="margin:0"><input type="text" id="h-busca" placeholder="🔍  Buscar por nome ou CPF..." oninput="renderHistorico()"></div>
+    </div>
+    <div class="card" id="historico-list"><p class="empty-state">Nenhuma locação registrada</p></div>
+  </div>
+
+</div>
+
+<!-- MODAL: ADICIONAR QUAD -->
+<div class="modal-bg" id="modal-quad">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <p class="modal-title">Cadastrar Quadriciclo</p>
+    <div class="field"><label>Modelo / Nome <span class="required">*</span></label><input type="text" id="q-modelo" placeholder="Ex: Honda TRX 420"></div>
+    <div class="field-row">
+      <div class="field"><label>Placa <span class="required">*</span></label><input type="text" id="q-placa" placeholder="ABC-1234" style="text-transform:uppercase"></div>
+      <div class="field"><label>Ano</label><input type="number" id="q-ano" placeholder="2023" inputmode="numeric"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Cor</label><input type="text" id="q-cor" placeholder="Vermelho"></div>
+      <div class="field"><label>Cilindradas</label><input type="text" id="q-cc" placeholder="420cc"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>KM atual</label><input type="number" id="q-km" placeholder="0" inputmode="numeric"></div>
+      <div class="field"><label>Status inicial</label>
+        <select id="q-status"><option value="disponivel">Disponível</option><option value="manutencao">Manutenção</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Observações</label><textarea id="q-obs" placeholder="Número de série, acessórios, etc." style="min-height:60px"></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary" onclick="closeModal('modal-quad')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveQuad()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DETALHES LOCAÇÃO -->
+<div class="modal-bg" id="modal-detalhes">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <p class="modal-title">Detalhes da Locação</p>
+    <div id="modal-detalhes-content"></div>
+    <div id="km-retorno-field" style="display:none" class="field">
+      <label>Registrar KM de retorno</label>
+      <input type="number" id="km-retorno-input" placeholder="KM atual do veículo" inputmode="numeric">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-secondary" onclick="closeModal('modal-detalhes')">Fechar</button>
+      <button class="btn btn-primary" id="btn-registrar-retorno" onclick="registrarRetorno()" style="display:none">Registrar Retorno</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let quads = JSON.parse(localStorage.getItem('quads') || '[]');
+let locacoes = JSON.parse(localStorage.getItem('locacoes') || '[]');
+let despesas = JSON.parse(localStorage.getItem('despesas') || '[]');
+let currentLocacaoId = null;
+let sigCtx = null, sigDrawing = false;
+
+// ---- SIGNATURE ----
+function initSig() {
+  const canvas = document.getElementById('sig-canvas');
+  const wrapper = document.getElementById('sig-wrapper');
+  canvas.width = wrapper.offsetWidth || 340;
+  canvas.height = 120;
+  sigCtx = canvas.getContext('2d');
+  sigCtx.strokeStyle = '#1a1a1a';
+  sigCtx.lineWidth = 2.5;
+  sigCtx.lineCap = 'round';
+  sigCtx.lineJoin = 'round';
+
+  const getPos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
+  };
+
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); sigDrawing = true; document.getElementById('sig-placeholder').style.display = 'none'; }, { passive: false });
+  canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!sigDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); }, { passive: false });
+  canvas.addEventListener('touchend', () => { sigDrawing = false; });
+  canvas.addEventListener('mousedown', e => { const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); sigDrawing = true; document.getElementById('sig-placeholder').style.display = 'none'; });
+  canvas.addEventListener('mousemove', e => { if (!sigDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); });
+  canvas.addEventListener('mouseup', () => { sigDrawing = false; });
+}
+function clearSig() {
+  const canvas = document.getElementById('sig-canvas');
+  if (sigCtx) sigCtx.clearRect(0, 0, canvas.width, canvas.height);
+  document.getElementById('sig-placeholder').style.display = 'flex';
+}
+
+// ---- NAV ----
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  document.getElementById('nav-' + id).classList.add('active');
+  if (id === 'frota') renderFrota();
+  if (id === 'financeiro') renderFinanceiro();
+  if (id === 'historico') renderHistorico();
+  if (id === 'cliente') populateQuadSelect('c-quad');
+}
+
+// ---- MASKS ----
+function maskCPF(el) {
+  let v = el.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 9) v = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6,9)+'-'+v.slice(9);
+  else if (v.length > 6) v = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6);
+  else if (v.length > 3) v = v.slice(0,3)+'.'+v.slice(3);
+  el.value = v;
+}
+function maskTel(el) {
+  let v = el.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 10) v = '('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
+  else if (v.length > 6) v = '('+v.slice(0,2)+') '+v.slice(2,6)+'-'+v.slice(6);
+  else if (v.length > 2) v = '('+v.slice(0,2)+') '+v.slice(2);
+  el.value = v;
+}
+function maskCEP(el) {
+  let v = el.value.replace(/\D/g, '').slice(0, 8);
+  if (v.length > 5) v = v.slice(0,5)+'-'+v.slice(5);
+  el.value = v;
+}
+
+// ---- TOAST ----
+function toast(msg, dur = 2800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ---- MODAL ----
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ---- SELECTS ----
+function populateQuadSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Selecione o quadriciclo</option>';
+  quads.forEach(q => {
+    const opt = document.createElement('option');
+    opt.value = q.id;
+    opt.textContent = q.modelo + ' — ' + q.placa;
+    sel.appendChild(opt);
+  });
+  if (cur) sel.value = cur;
+}
+
+// ---- QUAD CRUD ----
+function openAddQuad() {
+  ['q-modelo','q-placa','q-ano','q-cor','q-cc','q-km','q-obs'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('q-status').value = 'disponivel';
+  document.getElementById('modal-quad').classList.add('open');
+}
+function saveQuad() {
+  const modelo = document.getElementById('q-modelo').value.trim();
+  const placa = document.getElementById('q-placa').value.trim().toUpperCase();
+  if (!modelo || !placa) { toast('⚠️ Preencha modelo e placa'); return; }
+  const q = { id: Date.now(), modelo, placa, ano: document.getElementById('q-ano').value, cor: document.getElementById('q-cor').value, cc: document.getElementById('q-cc').value, km: parseFloat(document.getElementById('q-km').value) || 0, status: document.getElementById('q-status').value, obs: document.getElementById('q-obs').value };
+  quads.push(q);
+  localStorage.setItem('quads', JSON.stringify(quads));
+  closeModal('modal-quad');
+  toast('✅ Quadriciclo cadastrado!');
+  renderFrota();
+}
+function toggleStatus(id) {
+  const q = quads.find(x => x.id == id);
+  if (!q) return;
+  const emLocacao = locacoes.some(l => l.quadId == id && !l.kmRetorno);
+  if (emLocacao) { toast('⚠️ Quadriciclo está em locação'); return; }
+  q.status = q.status === 'disponivel' ? 'manutencao' : 'disponivel';
+  localStorage.setItem('quads', JSON.stringify(quads));
+  renderFrota();
+  toast(q.status === 'manutencao' ? '🔧 Enviado para manutenção' : '✅ Marcado como disponível');
+}
+function deleteQuad(id) {
+  const emLocacao = locacoes.some(l => l.quadId == id && !l.kmRetorno);
+  if (emLocacao) { toast('⚠️ Não é possível remover: veículo em locação'); return; }
+  if (!confirm('Remover este quadriciclo e todo seu histórico?')) return;
+  quads = quads.filter(x => x.id != id);
+  localStorage.setItem('quads', JSON.stringify(quads));
+  renderFrota();
+  toast('Quadriciclo removido');
+}
+function renderFrota() {
+  populateQuadSelect('c-quad');
+  populateQuadSelect('d-quad');
+  const emLocacao = id => locacoes.some(l => l.quadId == id && !l.kmRetorno);
+  document.getElementById('m-total').textContent = quads.length;
+  document.getElementById('m-locados').textContent = quads.filter(q => emLocacao(q.id)).length;
+  document.getElementById('m-disponiveis').textContent = quads.filter(q => !emLocacao(q.id) && q.status === 'disponivel').length;
+  document.getElementById('m-manutencao').textContent = quads.filter(q => q.status === 'manutencao').length;
+  const list = document.getElementById('quad-list');
+  if (!quads.length) { list.innerHTML = '<p class="empty-state">Nenhum quadriciclo cadastrado</p>'; return; }
+  list.innerHTML = quads.map(q => {
+    const loc = emLocacao(q.id);
+    const status = loc ? 'locado' : q.status;
+    const badgeCls = status === 'disponivel' ? 'badge-green' : status === 'locado' ? 'badge-amber' : 'badge-red';
+    const badgeTxt = status === 'disponivel' ? 'Disponível' : status === 'locado' ? 'Em locação' : 'Manutenção';
+    return `<div class="quad-item">
+      <div class="quad-info">
+        <div class="quad-name">${q.modelo} ${q.cc ? '('+q.cc+')' : ''}</div>
+        <div class="quad-plate">${q.placa}${q.ano ? ' · ' + q.ano : ''} · ${q.km.toLocaleString('pt-BR')} km · <span class="badge ${badgeCls}">${badgeTxt}</span></div>
+      </div>
+      <div class="quad-actions">
+        <button class="btn-sm" style="background:#f0f0f0;color:#555" onclick="toggleStatus(${q.id})">⚙️</button>
+        <button class="btn-sm" style="background:#FCEBEB;color:#A32D2D" onclick="deleteQuad(${q.id})">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ---- DESPESA ----
+function saveDespesa() {
+  const quadId = document.getElementById('d-quad').value;
+  const valor = parseFloat(document.getElementById('d-valor').value);
+  if (!quadId || !valor) { toast('⚠️ Selecione o quadriciclo e informe o valor'); return; }
+  despesas.push({ id: Date.now(), quadId, tipo: document.getElementById('d-tipo').value || 'Outros', valor, desc: document.getElementById('d-desc').value, data: document.getElementById('d-data').value || new Date().toISOString().slice(0,10) });
+  localStorage.setItem('despesas', JSON.stringify(despesas));
+  toast('💸 Despesa registrada!');
+  document.getElementById('d-quad').value = '';
+  document.getElementById('d-valor').value = '';
+  document.getElementById('d-desc').value = '';
+  document.getElementById('d-tipo').value = '';
+}
+
+// ---- LOCAÇÃO ----
+function saveLocacao() {
+  const nome = document.getElementById('c-nome').value.trim();
+  const cpf = document.getElementById('c-cpf').value.trim();
+  const nasc = document.getElementById('c-nasc').value;
+  const tel = document.getElementById('c-tel').value.trim();
+  const cnh = document.getElementById('c-cnh').value.trim();
+  const cnhVal = document.getElementById('c-cnh-val').value;
+  const quadId = document.getElementById('c-quad').value;
+  const kmSaida = document.getElementById('c-km-saida').value;
+  const dtSaida = document.getElementById('c-dt-saida').value;
+  const valor = parseFloat(document.getElementById('c-valor').value);
+  const endereco = document.getElementById('c-end').value.trim();
+  const cidade = document.getElementById('c-cidade').value.trim();
+
+  if (!nome || !cpf || !nasc || !tel || !cnh || !cnhVal || !quadId || !kmSaida || !dtSaida || !valor || !endereco || !cidade) {
+    toast('⚠️ Preencha todos os campos obrigatórios (*)'); return;
+  }
+
+  const canvas = document.getElementById('sig-canvas');
+  const sigData = canvas ? canvas.toDataURL() : '';
+  const emLocacao = locacoes.some(l => l.quadId == quadId && !l.kmRetorno);
+  if (emLocacao) { toast('⚠️ Este quadriciclo está em locação'); return; }
+
+  const loc = {
+    id: Date.now(), nome, cpf, nasc, tel, email: document.getElementById('c-email').value,
+    cep: document.getElementById('c-cep').value, endereco, cidade, uf: document.getElementById('c-uf').value,
+    cnh, cnhCat: document.getElementById('c-cnh-cat').value, cnhVal, cnhOrg: document.getElementById('c-cnh-org').value,
+    quadId, dtSaida, dtRetornoPrev: document.getElementById('c-dt-retorno').value,
+    kmSaida: parseFloat(kmSaida), kmRetorno: null, valor, pgto: document.getElementById('c-pgto').value,
+    obs: document.getElementById('c-obs').value, assinatura: sigData, dtRegistro: new Date().toISOString()
+  };
+  locacoes.push(loc);
+  localStorage.setItem('locacoes', JSON.stringify(locacoes));
+
+  const q = quads.find(x => x.id == quadId);
+  if (q) { q.km = parseFloat(kmSaida); q.status = 'locado'; localStorage.setItem('quads', JSON.stringify(quads)); }
+
+  toast('✅ Locação registrada com sucesso!');
+  ['c-nome','c-cpf','c-nasc','c-tel','c-email','c-cep','c-end','c-cidade','c-uf','c-cnh','c-cnh-val','c-cnh-org','c-km-saida','c-km-retorno','c-valor','c-obs'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('c-quad').value = '';
+  document.getElementById('c-pgto').value = '';
+  clearSig();
+}
+
+// ---- FINANCEIRO ----
+function fmt(n) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function renderFinanceiro() {
+  const totalRec = locacoes.reduce((s, l) => s + (l.valor || 0), 0);
+  const totalDesp = despesas.reduce((s, d) => s + (d.valor || 0), 0);
+  const lucro = totalRec - totalDesp;
+  document.getElementById('f-receita').textContent = fmt(totalRec);
+  document.getElementById('f-despesa').textContent = fmt(totalDesp);
+  const fl = document.getElementById('f-lucro');
+  fl.textContent = fmt(lucro);
+  fl.className = 'metric-value ' + (lucro >= 0 ? 'green' : 'red');
+
+  const pq = document.getElementById('f-por-quad');
+  if (!quads.length) { pq.innerHTML = '<p class="empty-state">Cadastre quadriciclos</p>'; }
+  else pq.innerHTML = quads.map(q => {
+    const rec = locacoes.filter(l => l.quadId == q.id).reduce((s,l) => s+(l.valor||0), 0);
+    const desp = despesas.filter(d => d.quadId == q.id).reduce((s,d) => s+(d.valor||0), 0);
+    const lq = rec - desp;
+    return `<div class="record">
+      <div class="record-header"><span class="record-name">${q.modelo}</span><span class="badge ${lq>=0?'badge-green':'badge-red'}">${fmt(lq)}</span></div>
+      <div class="record-detail">Receita: ${fmt(rec)} · Despesas: ${fmt(desp)}</div>
+    </div>`;
+  }).join('');
+
+  const dl = document.getElementById('f-despesas-list');
+  const sortedD = [...despesas].sort((a,b) => b.id-a.id).slice(0,8);
+  dl.innerHTML = sortedD.length ? sortedD.map(d => {
+    const q = quads.find(x => x.id == d.quadId);
+    return `<div class="record"><div class="record-header"><span class="record-name">${d.tipo}</span><span style="color:#E24B4A;font-weight:600">-${fmt(d.valor)}</span></div><div class="record-detail">${q?q.modelo:''} ${d.desc?'· '+d.desc:''} · ${d.data}</div></div>`;
+  }).join('') : '<p class="empty-state">Nenhuma despesa</p>';
+
+  const rl = document.getElementById('f-receitas-list');
+  const sortedR = [...locacoes].sort((a,b) => b.id-a.id).slice(0,8);
+  rl.innerHTML = sortedR.length ? sortedR.map(l => {
+    const q = quads.find(x => x.id == l.quadId);
+    return `<div class="record"><div class="record-header"><span class="record-name">${l.nome}</span><span style="color:#1D9E75;font-weight:600">+${fmt(l.valor)}</span></div><div class="record-detail">${q?q.modelo:''} · ${l.pgto||''} · ${new Date(l.dtSaida).toLocaleDateString('pt-BR')}</div></div>`;
+  }).join('') : '<p class="empty-state">Nenhuma receita</p>';
+}
+
+// ---- HISTÓRICO ----
+function renderHistorico() {
+  const busca = (document.getElementById('h-busca').value || '').toLowerCase();
+  const filtered = locacoes.filter(l => !busca || l.nome.toLowerCase().includes(busca) || l.cpf.includes(busca)).sort((a,b) => b.id-a.id);
+  const list = document.getElementById('historico-list');
+  if (!filtered.length) { list.innerHTML = '<p class="empty-state">Nenhuma locação encontrada</p>'; return; }
+  list.innerHTML = filtered.map(l => {
+    const q = quads.find(x => x.id == l.quadId);
+    const status = l.kmRetorno ? '<span class="badge badge-green">Devolvido</span>' : '<span class="badge badge-amber">Em andamento</span>';
+    const km = l.kmRetorno ? `${l.kmSaida.toLocaleString()} → ${l.kmRetorno.toLocaleString()} km (+${(l.kmRetorno-l.kmSaida).toFixed(0)} km)` : `Saída: ${l.kmSaida.toLocaleString()} km`;
+    return `<div class="record" onclick="openDetalhes(${l.id})">
+      <div class="record-header"><span class="record-name">${l.nome}</span>${status}</div>
+      <div class="record-detail">${q?q.modelo:'—'} · ${km}</div>
+      <div class="record-detail">${fmt(l.valor)} · ${l.pgto||''} · ${new Date(l.dtSaida).toLocaleDateString('pt-BR')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ---- DETALHES ----
+function openDetalhes(id) {
+  currentLocacaoId = id;
+  const l = locacoes.find(x => x.id == id);
+  if (!l) return;
+  const q = quads.find(x => x.id == l.quadId);
+  const content = document.getElementById('modal-detalhes-content');
+  const rows = [
+    ['Locatário', l.nome], ['CPF', l.cpf], ['Nascimento', l.nasc ? new Date(l.nasc+'T12:00:00').toLocaleDateString('pt-BR') : '—'],
+    ['Telefone', l.tel], ['E-mail', l.email||'—'], ['Endereço', l.endereco + (l.cidade ? ', '+l.cidade : '') + (l.uf ? '/'+l.uf : '')],
+    ['CNH', l.cnh + (l.cnhCat?' ('+l.cnhCat+')':'')], ['Validade CNH', l.cnhVal ? new Date(l.cnhVal+'T12:00:00').toLocaleDateString('pt-BR') : '—'],
+    ['Quadriciclo', q ? q.modelo+' — '+q.placa : '—'],
+    ['Saída', new Date(l.dtSaida).toLocaleString('pt-BR')],
+    ['Prev. retorno', l.dtRetornoPrev ? new Date(l.dtRetornoPrev).toLocaleString('pt-BR') : '—'],
+    ['KM saída', l.kmSaida.toLocaleString()], ['KM retorno', l.kmRetorno ? l.kmRetorno.toLocaleString() : '—'],
+    l.kmRetorno ? ['KM rodados', '+' + (l.kmRetorno-l.kmSaida).toFixed(0) + ' km'] : null,
+    ['Valor', fmt(l.valor)], ['Pagamento', l.pgto||'—'],
+    l.obs ? ['Observações', l.obs] : null
+  ].filter(Boolean);
+  content.innerHTML = rows.map(([k,v]) => `<div class="km-row"><span class="km-label">${k}</span><span class="km-val" style="text-align:right;max-width:60%;word-break:break-word">${v}</span></div>`).join('');
+  const krf = document.getElementById('km-retorno-field');
+  const btn = document.getElementById('btn-registrar-retorno');
+  if (l.kmRetorno) { krf.style.display = 'none'; btn.style.display = 'none'; }
+  else { krf.style.display = 'block'; btn.style.display = 'block'; document.getElementById('km-retorno-input').value = ''; }
+  document.getElementById('modal-detalhes').classList.add('open');
+}
+function registrarRetorno() {
+  const km = parseFloat(document.getElementById('km-retorno-input').value);
+  if (!km) { toast('⚠️ Informe o KM de retorno'); return; }
+  const l = locacoes.find(x => x.id == currentLocacaoId);
+  if (!l) return;
+  if (km < l.kmSaida) { toast('⚠️ KM de retorno menor que o de saída'); return; }
+  l.kmRetorno = km;
+  l.dtRetornoReal = new Date().toISOString();
+  const q = quads.find(x => x.id == l.quadId);
+  if (q) { q.km = km; q.status = 'disponivel'; localStorage.setItem('quads', JSON.stringify(quads)); }
+  localStorage.setItem('locacoes', JSON.stringify(locacoes));
+  closeModal('modal-detalhes');
+  toast('✅ Retorno registrado! Veículo disponível.');
+  renderHistorico();
+}
+
+// ---- INIT ----
+window.addEventListener('load', () => {
+  initSig();
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('c-dt-saida').value = local;
+  document.getElementById('d-data').value = now.toISOString().slice(0,10);
+  populateQuadSelect('c-quad');
+});
+</script>
+</body>
+</html>
