@@ -74,6 +74,10 @@
   .app-header { background: #1D9E75; color: #fff; padding: 16px 16px 14px; text-align: center; }
   .app-header h1 { font-size: 20px; font-weight: 700; }
   .app-header p { font-size: 12px; opacity: 0.75; margin-top: 3px; }
+  .photo-box { border: 1.5px dashed #ccc; border-radius: 8px; height: 110px; background: #fafafa; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; transition: border-color 0.2s; }
+  .photo-box:active { border-color: #1D9E75; }
+  .photo-box.has-photo { border: 2px solid #1D9E75; }
+  .photo-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -124,6 +128,30 @@
         <div class="field"><label>Validade <span class="required">*</span></label><input type="date" id="c-cnh-val"></div>
       </div>
       <div class="field"><label>Órgão emissor / UF</label><input type="text" id="c-cnh-org" placeholder="Ex: DETRAN/SP"></div>
+      <div class="field-row">
+        <div class="field">
+          <label>Foto frente da CNH <span class="required">*</span></label>
+          <div class="photo-box" id="box-cnh-frente" onclick="triggerPhoto('cnh-frente')">
+            <input type="file" id="cnh-frente" accept="image/*" capture="environment" style="display:none" onchange="previewPhoto(this,'box-cnh-frente','prev-cnh-frente')">
+            <img id="prev-cnh-frente" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:8px">
+            <div class="photo-placeholder" id="ph-cnh-frente">
+              <span style="font-size:28px">📷</span>
+              <span style="font-size:12px;margin-top:4px;color:#999">Frente</span>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Foto verso da CNH <span class="required">*</span></label>
+          <div class="photo-box" id="box-cnh-verso" onclick="triggerPhoto('cnh-verso')">
+            <input type="file" id="cnh-verso" accept="image/*" capture="environment" style="display:none" onchange="previewPhoto(this,'box-cnh-verso','prev-cnh-verso')">
+            <img id="prev-cnh-verso" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:8px">
+            <div class="photo-placeholder" id="ph-cnh-verso">
+              <span style="font-size:28px">📷</span>
+              <span style="font-size:12px;margin-top:4px;color:#999">Verso</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -293,6 +321,47 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// ---- PHOTOS ----
+function triggerPhoto(id) { document.getElementById(id).click(); }
+function previewPhoto(input, boxId, imgId) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById(imgId);
+    const box = document.getElementById(boxId);
+    const ph = box.querySelector('.photo-placeholder');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    if (ph) ph.style.display = 'none';
+    box.classList.add('has-photo');
+  };
+  reader.readAsDataURL(file);
+}
+function getPhotoData(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input.files || !input.files[0]) return null;
+  return new Promise(res => {
+    const reader = new FileReader();
+    reader.onload = e => res(e.target.result);
+    reader.readAsDataURL(input.files[0]);
+  });
+}
+function clearPhotos() {
+  ['cnh-frente','cnh-verso'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = '';
+    const boxId = 'box-' + id;
+    const imgId = 'prev-' + id;
+    const box = document.getElementById(boxId);
+    const img = document.getElementById(imgId);
+    const ph = box ? box.querySelector('.photo-placeholder') : null;
+    if (img) { img.src = ''; img.style.display = 'none'; }
+    if (ph) ph.style.display = 'flex';
+    if (box) box.classList.remove('has-photo');
+  });
+}
+
 let quads = JSON.parse(localStorage.getItem('quads') || '[]');
 let locacoes = JSON.parse(localStorage.getItem('locacoes') || '[]');
 let despesas = JSON.parse(localStorage.getItem('despesas') || '[]');
@@ -485,31 +554,38 @@ function saveLocacao() {
   if (!nome || !cpf || !nasc || !tel || !cnh || !cnhVal || !quadId || !kmSaida || !dtSaida || !valor || !endereco || !cidade) {
     toast('⚠️ Preencha todos os campos obrigatórios (*)'); return;
   }
+  const cnhFrenteInput = document.getElementById('cnh-frente');
+  const cnhVersoInput = document.getElementById('cnh-verso');
+  if (!cnhFrenteInput.files || !cnhFrenteInput.files[0]) { toast('📷 Tire uma foto da FRENTE da CNH'); return; }
+  if (!cnhVersoInput.files || !cnhVersoInput.files[0]) { toast('📷 Tire uma foto do VERSO da CNH'); return; }
 
-  const canvas = document.getElementById('sig-canvas');
-  const sigData = canvas ? canvas.toDataURL() : '';
   const emLocacao = locacoes.some(l => l.quadId == quadId && !l.kmRetorno);
   if (emLocacao) { toast('⚠️ Este quadriciclo está em locação'); return; }
 
-  const loc = {
-    id: Date.now(), nome, cpf, nasc, tel, email: document.getElementById('c-email').value,
-    cep: document.getElementById('c-cep').value, endereco, cidade, uf: document.getElementById('c-uf').value,
-    cnh, cnhCat: document.getElementById('c-cnh-cat').value, cnhVal, cnhOrg: document.getElementById('c-cnh-org').value,
-    quadId, dtSaida, dtRetornoPrev: document.getElementById('c-dt-retorno').value,
-    kmSaida: parseFloat(kmSaida), kmRetorno: null, valor, pgto: document.getElementById('c-pgto').value,
-    obs: document.getElementById('c-obs').value, assinatura: sigData, dtRegistro: new Date().toISOString()
-  };
-  locacoes.push(loc);
-  localStorage.setItem('locacoes', JSON.stringify(locacoes));
+  const canvas = document.getElementById('sig-canvas');
+  const sigData = canvas ? canvas.toDataURL() : '';
 
-  const q = quads.find(x => x.id == quadId);
-  if (q) { q.km = parseFloat(kmSaida); q.status = 'locado'; localStorage.setItem('quads', JSON.stringify(quads)); }
-
-  toast('✅ Locação registrada com sucesso!');
-  ['c-nome','c-cpf','c-nasc','c-tel','c-email','c-cep','c-end','c-cidade','c-uf','c-cnh','c-cnh-val','c-cnh-org','c-km-saida','c-km-retorno','c-valor','c-obs'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-  document.getElementById('c-quad').value = '';
-  document.getElementById('c-pgto').value = '';
-  clearSig();
+  Promise.all([getPhotoData('cnh-frente'), getPhotoData('cnh-verso')]).then(([cnhFrenteData, cnhVersoData]) => {
+    const loc = {
+      id: Date.now(), nome, cpf, nasc, tel, email: document.getElementById('c-email').value,
+      cep: document.getElementById('c-cep').value, endereco, cidade, uf: document.getElementById('c-uf').value,
+      cnh, cnhCat: document.getElementById('c-cnh-cat').value, cnhVal, cnhOrg: document.getElementById('c-cnh-org').value,
+      cnhFrente: cnhFrenteData, cnhVerso: cnhVersoData,
+      quadId, dtSaida, dtRetornoPrev: document.getElementById('c-dt-retorno').value,
+      kmSaida: parseFloat(kmSaida), kmRetorno: null, valor, pgto: document.getElementById('c-pgto').value,
+      obs: document.getElementById('c-obs').value, assinatura: sigData, dtRegistro: new Date().toISOString()
+    };
+    locacoes.push(loc);
+    localStorage.setItem('locacoes', JSON.stringify(locacoes));
+    const q = quads.find(x => x.id == quadId);
+    if (q) { q.km = parseFloat(kmSaida); q.status = 'locado'; localStorage.setItem('quads', JSON.stringify(quads)); }
+    toast('✅ Locação registrada com sucesso!');
+    ['c-nome','c-cpf','c-nasc','c-tel','c-email','c-cep','c-end','c-cidade','c-uf','c-cnh','c-cnh-val','c-cnh-org','c-km-saida','c-km-retorno','c-valor','c-obs'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    document.getElementById('c-quad').value = '';
+    document.getElementById('c-pgto').value = '';
+    clearSig();
+    clearPhotos();
+  });
 }
 
 // ---- FINANCEIRO ----
@@ -589,6 +665,9 @@ function openDetalhes(id) {
     l.obs ? ['Observações', l.obs] : null
   ].filter(Boolean);
   content.innerHTML = rows.map(([k,v]) => `<div class="km-row"><span class="km-label">${k}</span><span class="km-val" style="text-align:right;max-width:60%;word-break:break-word">${v}</span></div>`).join('');
+  if (l.cnhFrente || l.cnhVerso) {
+    content.innerHTML += `<div style="margin-top:12px"><p style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Fotos da CNH</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${l.cnhFrente ? `<div><p style="font-size:11px;color:#888;margin-bottom:4px">Frente</p><img src="${l.cnhFrente}" style="width:100%;border-radius:8px;border:1px solid #eee"></div>` : ''}${l.cnhVerso ? `<div><p style="font-size:11px;color:#888;margin-bottom:4px">Verso</p><img src="${l.cnhVerso}" style="width:100%;border-radius:8px;border:1px solid #eee"></div>` : ''}</div></div>`;
+  }
   const krf = document.getElementById('km-retorno-field');
   const btn = document.getElementById('btn-registrar-retorno');
   if (l.kmRetorno) { krf.style.display = 'none'; btn.style.display = 'none'; }
