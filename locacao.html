@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Quad Rental — Formulário de Locação</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f0f0; color: #111; font-size: 15px; }
+  .app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+  .app-header { background: #1D9E75; color: #fff; padding: 18px 16px 14px; text-align: center; }
+  .app-header h1 { font-size: 20px; font-weight: 700; }
+  .app-header p { font-size: 12px; opacity: 0.75; margin-top: 3px; }
+  .content { padding: 14px; flex: 1; }
+  .card { background: #fff; border: 0.5px solid #e0e0e0; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .card-title { font-size: 11px; font-weight: 600; color: #999; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.8px; }
+  .field { margin-bottom: 13px; }
+  .field label { display: block; font-size: 13px; color: #555; margin-bottom: 5px; font-weight: 500; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; background: #fff; color: #111; outline: none; font-family: inherit; -webkit-appearance: none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: #1D9E75; box-shadow: 0 0 0 3px rgba(29,158,117,0.12); }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .required { color: #E24B4A; }
+  .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.1s; margin-top: 4px; }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: #1D9E75; color: #fff; }
+  .btn-secondary { background: transparent; border: 1px solid #ccc; color: #333; }
+  .contract-box { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 8px; padding: 16px; font-size: 13px; line-height: 1.8; color: #333; margin-bottom: 14px; max-height: 240px; overflow-y: auto; }
+  .contract-box h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; text-align: center; }
+  .contract-box p { margin-bottom: 10px; }
+  .sig-wrapper { position: relative; border: 1.5px dashed #ccc; border-radius: 8px; height: 120px; background: #fafafa; margin-bottom: 8px; overflow: hidden; touch-action: none; }
+  .sig-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #bbb; pointer-events: none; }
+  canvas#sig-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  .photo-box { border: 1.5px dashed #ccc; border-radius: 8px; height: 110px; background: #fafafa; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; transition: border-color 0.2s; }
+  .photo-box:active { border-color: #1D9E75; }
+  .photo-box.has-photo { border: 2px solid #1D9E75; background: #f0faf5; }
+  .photo-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; gap: 4px; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #111; color: #fff; padding: 11px 22px; border-radius: 10px; font-size: 14px; z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; }
+  .section-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; color: #111; }
+  .no-quads-banner { background: #fff8e1; border: 1px solid #ffe082; border-radius: 10px; padding: 16px; text-align: center; color: #7B5800; font-size: 14px; margin-bottom: 16px; }
+  .success-screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; text-align: center; padding: 32px 24px; }
+  .success-screen.show { display: flex; }
+  .success-icon { font-size: 64px; margin-bottom: 16px; }
+  .success-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; color: #1D9E75; }
+  .success-sub { font-size: 15px; color: #666; line-height: 1.6; margin-bottom: 24px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="app-header">
+    <h1>🏍️ Quad Rental</h1>
+    <p>Formulário de Locação</p>
+  </div>
+
+  <div class="content" id="form-content">
+    <br>
+    <p class="section-title">Nova Locação</p>
+
+    <div id="no-quads-msg" class="no-quads-banner" style="display:none">
+      ⚠️ Nenhum quadriciclo disponível no momento. Por favor, aguarde ou entre em contato.
+    </div>
+
+    <div class="card">
+      <p class="card-title">👤 Dados do Locatário</p>
+      <div class="field"><label>Nome completo <span class="required">*</span></label><input type="text" id="c-nome" placeholder="Nome completo" autocomplete="name"></div>
+      <div class="field"><label>CPF <span class="required">*</span></label><input type="text" id="c-cpf" placeholder="000.000.000-00" oninput="maskCPF(this)" inputmode="numeric"></div>
+      <div class="field"><label>Data de nascimento <span class="required">*</span></label><input type="date" id="c-nasc"></div>
+      <div class="field"><label>Telefone / WhatsApp <span class="required">*</span></label><input type="tel" id="c-tel" placeholder="(00) 00000-0000" oninput="maskTel(this)"></div>
+      <div class="field"><label>E-mail</label><input type="email" id="c-email" placeholder="email@exemplo.com"></div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">🏠 Endereço de Residência</p>
+      <div class="field"><label>CEP</label><input type="text" id="c-cep" placeholder="00000-000" inputmode="numeric" oninput="maskCEP(this)"></div>
+      <div class="field"><label>Endereço completo <span class="required">*</span></label><input type="text" id="c-end" placeholder="Rua, número, complemento"></div>
+      <div class="field-row">
+        <div class="field"><label>Cidade <span class="required">*</span></label><input type="text" id="c-cidade" placeholder="Cidade"></div>
+        <div class="field"><label>Estado</label><input type="text" id="c-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">🪪 Dados da CNH</p>
+      <div class="field"><label>Número da CNH <span class="required">*</span></label><input type="text" id="c-cnh" placeholder="00000000000" inputmode="numeric"></div>
+      <div class="field-row">
+        <div class="field"><label>Categoria</label>
+          <select id="c-cnh-cat"><option value="">Categoria</option><option>A</option><option>AB</option><option>AC</option><option>AD</option><option>AE</option><option>B</option><option>C</option><option>D</option><option>E</option></select>
+        </div>
+        <div class="field"><label>Validade <span class="required">*</span></label><input type="date" id="c-cnh-val"></div>
+      </div>
+      <div class="field"><label>Órgão emissor / UF</label><input type="text" id="c-cnh-org" placeholder="Ex: DETRAN/SP"></div>
+      <div class="field-row">
+        <div class="field">
+          <label>Foto frente da CNH <span class="required">*</span></label>
+          <div class="photo-box" id="box-cnh-frente" onclick="triggerPhoto('cnh-frente')">
+            <input type="file" id="cnh-frente" accept="image/*" capture="environment" style="display:none" onchange="previewPhoto(this,'box-cnh-frente','prev-cnh-frente')">
+            <img id="prev-cnh-frente" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:8px">
+            <div class="photo-placeholder"><span style="font-size:28px">📷</span><span style="font-size:12px;color:#999">Frente</span></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Foto verso da CNH <span class="required">*</span></label>
+          <div class="photo-box" id="box-cnh-verso" onclick="triggerPhoto('cnh-verso')">
+            <input type="file" id="cnh-verso" accept="image/*" capture="environment" style="display:none" onchange="previewPhoto(this,'box-cnh-verso','prev-cnh-verso')">
+            <img id="prev-cnh-verso" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:8px">
+            <div class="photo-placeholder"><span style="font-size:28px">📷</span><span style="font-size:12px;color:#999">Verso</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">🏍️ Dados da Locação</p>
+      <div class="field"><label>Quadriciclo <span class="required">*</span></label>
+        <select id="c-quad"><option value="">Selecione o quadriciclo</option></select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Data/hora saída <span class="required">*</span></label><input type="datetime-local" id="c-dt-saida"></div>
+        <div class="field"><label>Previsão retorno</label><input type="datetime-local" id="c-dt-retorno"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>KM saída <span class="required">*</span></label><input type="number" id="c-km-saida" placeholder="0" inputmode="numeric"></div>
+        <div class="field"><label>Valor (R$) <span class="required">*</span></label><input type="number" id="c-valor" placeholder="0,00" step="0.01" inputmode="decimal"></div>
+      </div>
+      <div class="field"><label>Forma de pagamento</label>
+        <select id="c-pgto"><option value="">Selecione</option><option>Dinheiro</option><option>PIX</option><option>Cartão débito</option><option>Cartão crédito</option></select>
+      </div>
+      <div class="field"><label>Observações</label><textarea id="c-obs" placeholder="Acessórios entregues, estado do veículo, avarias pré-existentes..."></textarea></div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">📄 Contrato de Locação e Responsabilidade</p>
+      <div class="contract-box">
+        <h4>CONTRATO DE LOCAÇÃO DE QUADRICICLO E TERMO DE RESPONSABILIDADE</h4>
+        <p>Pelo presente instrumento particular, as partes abaixo identificadas celebram o presente Contrato de Locação de Quadriciclo, que se regerá pelas cláusulas e condições seguintes:</p>
+        <p><strong>1. OBJETO:</strong> O LOCADOR disponibiliza ao LOCATÁRIO, em regime de locação temporária, o veículo quadriciclo identificado neste formulário, pelo período e valor acordados.</p>
+        <p><strong>2. RESPONSABILIDADE DO LOCATÁRIO:</strong> O locatário declara ter pleno conhecimento das leis de trânsito vigentes e assume inteira responsabilidade por qualquer infração, acidente ou dano causado ao veículo ou a terceiros durante o período de locação, inclusive danos decorrentes de uso indevido.</p>
+        <p><strong>3. CONDIÇÕES DE USO:</strong> É vedado ao locatário: (a) trafegar em vias não permitidas para este tipo de veículo; (b) transportar passageiros além da capacidade do veículo; (c) realizar manobras de risco ou acrobacias; (d) conduzir sob influência de álcool ou quaisquer substâncias psicoativas; (e) sublocar o veículo a terceiros sem autorização.</p>
+        <p><strong>4. DANOS E AVARIAS:</strong> O locatário compromete-se a devolver o veículo nas mesmas condições em que o recebeu. Quaisquer danos ocorridos durante a locação serão de inteira responsabilidade do locatário, incluindo custos de reparo, reboque e lucros cessantes durante o período de imobilização do veículo.</p>
+        <p><strong>5. QUILOMETRAGEM:</strong> A quilometragem de saída e retorno será registrada e fará parte integrante deste contrato. Uso excessivo ou em percursos não autorizados poderá implicar cobrança adicional conforme tabela do locador.</p>
+        <p><strong>6. DOCUMENTAÇÃO:</strong> O locatário declara possuir Carteira Nacional de Habilitação (CNH) válida e na categoria exigida para condução do veículo, e autoriza a verificação de seus dados cadastrais junto aos órgãos competentes.</p>
+        <p><strong>7. EQUIPAMENTOS DE SEGURANÇA:</strong> O locatário obriga-se a utilizar capacete e demais equipamentos de proteção fornecidos ou exigidos pelo locador durante toda a utilização do veículo.</p>
+        <p><strong>8. DEVOLUÇÃO:</strong> O veículo deverá ser devolvido no local, data e horário combinados. O atraso na devolução sem aviso prévio implicará cobrança de diária adicional e poderá ser caracterizado como apropriação indébita.</p>
+        <p><strong>9. FORO:</strong> Fica eleito o foro da comarca local para dirimir quaisquer litígios oriundos do presente contrato, com renúncia a qualquer outro, por mais privilegiado que seja.</p>
+        <p>Ao assinar abaixo, o locatário declara ter lido, compreendido e concordado integralmente com todos os termos e condições deste contrato.</p>
+      </div>
+      <div class="field">
+        <label>Assinatura do Locatário <span class="required">*</span></label>
+        <div class="sig-wrapper" id="sig-wrapper">
+          <div class="sig-placeholder" id="sig-placeholder">✍️ Assine aqui com o dedo</div>
+          <canvas id="sig-canvas"></canvas>
+        </div>
+        <button class="btn btn-secondary" onclick="clearSig()" style="width:auto;padding:8px 16px;font-size:13px;margin-top:0">Limpar assinatura</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveLocacao()">✅ Registrar Locação</button>
+    <div style="height:28px"></div>
+  </div>
+
+  <div class="success-screen" id="success-screen">
+    <div class="success-icon">✅</div>
+    <div class="success-title">Locação registrada!</div>
+    <div class="success-sub">Seus dados foram salvos com sucesso.<br>Boa locação e dirija com segurança!</div>
+    <button class="btn btn-primary" style="max-width:260px" onclick="resetForm()">Nova Locação</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Chaves compartilhadas com admin.html
+const KEYS = { quads: 'qr_quads', locacoes: 'qr_locacoes', despesas: 'qr_despesas' };
+let quads = JSON.parse(localStorage.getItem(KEYS.quads) || '[]');
+let locacoes = JSON.parse(localStorage.getItem(KEYS.locacoes) || '[]');
+let sigCtx = null, sigDrawing = false;
+
+function save(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+function reload() {
+  quads = JSON.parse(localStorage.getItem(KEYS.quads) || '[]');
+  locacoes = JSON.parse(localStorage.getItem(KEYS.locacoes) || '[]');
+}
+
+// ---- TOAST ----
+function toast(msg, dur = 3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ---- MASKS ----
+function maskCPF(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if (v.length>9) v=v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6,9)+'-'+v.slice(9);
+  else if(v.length>6) v=v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6);
+  else if(v.length>3) v=v.slice(0,3)+'.'+v.slice(3);
+  el.value=v;
+}
+function maskTel(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if(v.length>10) v='('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
+  else if(v.length>6) v='('+v.slice(0,2)+') '+v.slice(2,6)+'-'+v.slice(6);
+  else if(v.length>2) v='('+v.slice(0,2)+') '+v.slice(2);
+  el.value=v;
+}
+function maskCEP(el) {
+  let v=el.value.replace(/\D/g,'').slice(0,8);
+  if(v.length>5) v=v.slice(0,5)+'-'+v.slice(5);
+  el.value=v;
+}
+
+// ---- SIGNATURE ----
+function initSig() {
+  const canvas = document.getElementById('sig-canvas');
+  const wrapper = document.getElementById('sig-wrapper');
+  canvas.width = wrapper.offsetWidth || 340;
+  canvas.height = 120;
+  sigCtx = canvas.getContext('2d');
+  sigCtx.strokeStyle = '#1a1a1a'; sigCtx.lineWidth = 2.5; sigCtx.lineCap = 'round'; sigCtx.lineJoin = 'round';
+  const getPos = e => { const r=canvas.getBoundingClientRect(); const s=e.touches?e.touches[0]:e; return {x:s.clientX-r.left,y:s.clientY-r.top}; };
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();const p=getPos(e);sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);sigDrawing=true;document.getElementById('sig-placeholder').style.display='none';},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!sigDrawing)return;const p=getPos(e);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();},{passive:false});
+  canvas.addEventListener('touchend',()=>{sigDrawing=false;});
+  canvas.addEventListener('mousedown',e=>{const p=getPos(e);sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);sigDrawing=true;document.getElementById('sig-placeholder').style.display='none';});
+  canvas.addEventListener('mousemove',e=>{if(!sigDrawing)return;const p=getPos(e);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();});
+  canvas.addEventListener('mouseup',()=>{sigDrawing=false;});
+}
+function clearSig() {
+  if(sigCtx) sigCtx.clearRect(0,0,document.getElementById('sig-canvas').width,120);
+  document.getElementById('sig-placeholder').style.display='flex';
+}
+function isSigEmpty() {
+  const canvas = document.getElementById('sig-canvas');
+  const data = canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+  return !data.some(v=>v!==0);
+}
+
+// ---- PHOTOS ----
+function triggerPhoto(id) { document.getElementById(id).click(); }
+function previewPhoto(input, boxId, imgId) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img=document.getElementById(imgId); const box=document.getElementById(boxId); const ph=box.querySelector('.photo-placeholder');
+    img.src=e.target.result; img.style.display='block'; if(ph) ph.style.display='none'; box.classList.add('has-photo');
+  };
+  reader.readAsDataURL(file);
+}
+function getPhotoData(inputId) {
+  const input=document.getElementById(inputId);
+  if(!input.files||!input.files[0]) return Promise.resolve(null);
+  return new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(input.files[0]); });
+}
+function clearPhotos() {
+  ['cnh-frente','cnh-verso'].forEach(id=>{
+    const input=document.getElementById(id); if(input) input.value='';
+    const box=document.getElementById('box-'+id); const img=document.getElementById('prev-'+id);
+    const ph=box?box.querySelector('.photo-placeholder'):null;
+    if(img){img.src='';img.style.display='none';} if(ph) ph.style.display='flex'; if(box) box.classList.remove('has-photo');
+  });
+}
+
+// ---- POPULATE SELECT ----
+function populateQuads() {
+  reload();
+  const disponíveis = quads.filter(q => q.status === 'disponivel' && !locacoes.some(l => l.quadId == q.id && !l.kmRetorno));
+  const sel = document.getElementById('c-quad');
+  sel.innerHTML = '<option value="">Selecione o quadriciclo</option>';
+  disponíveis.forEach(q => { const o=document.createElement('option'); o.value=q.id; o.textContent=q.modelo+' — '+q.placa; sel.appendChild(o); });
+  document.getElementById('no-quads-msg').style.display = disponíveis.length === 0 ? 'block' : 'none';
+}
+
+// ---- SAVE ----
+function saveLocacao() {
+  reload();
+  const nome=document.getElementById('c-nome').value.trim();
+  const cpf=document.getElementById('c-cpf').value.trim();
+  const nasc=document.getElementById('c-nasc').value;
+  const tel=document.getElementById('c-tel').value.trim();
+  const cnh=document.getElementById('c-cnh').value.trim();
+  const cnhVal=document.getElementById('c-cnh-val').value;
+  const quadId=document.getElementById('c-quad').value;
+  const kmSaida=document.getElementById('c-km-saida').value;
+  const dtSaida=document.getElementById('c-dt-saida').value;
+  const valor=parseFloat(document.getElementById('c-valor').value);
+  const endereco=document.getElementById('c-end').value.trim();
+  const cidade=document.getElementById('c-cidade').value.trim();
+
+  if(!nome||!cpf||!nasc||!tel||!cnh||!cnhVal||!quadId||!kmSaida||!dtSaida||!valor||!endereco||!cidade) {
+    toast('⚠️ Preencha todos os campos obrigatórios (*)'); return;
+  }
+  const fi=document.getElementById('cnh-frente'); const vi=document.getElementById('cnh-verso');
+  if(!fi.files||!fi.files[0]){toast('📷 Tire uma foto da FRENTE da CNH');return;}
+  if(!vi.files||!vi.files[0]){toast('📷 Tire uma foto do VERSO da CNH');return;}
+  if(isSigEmpty()){toast('✍️ Por favor, assine o contrato');return;}
+
+  const emLocacao=locacoes.some(l=>l.quadId==quadId&&!l.kmRetorno);
+  if(emLocacao){toast('⚠️ Este quadriciclo não está disponível');return;}
+
+  const canvas=document.getElementById('sig-canvas');
+  Promise.all([getPhotoData('cnh-frente'),getPhotoData('cnh-verso')]).then(([cnhFrente,cnhVerso])=>{
+    const loc={
+      id:Date.now(), nome, cpf, nasc, tel, email:document.getElementById('c-email').value,
+      cep:document.getElementById('c-cep').value, endereco, cidade, uf:document.getElementById('c-uf').value,
+      cnh, cnhCat:document.getElementById('c-cnh-cat').value, cnhVal, cnhOrg:document.getElementById('c-cnh-org').value,
+      cnhFrente, cnhVerso,
+      quadId, dtSaida, dtRetornoPrev:document.getElementById('c-dt-retorno').value,
+      kmSaida:parseFloat(kmSaida), kmRetorno:null, valor, pgto:document.getElementById('c-pgto').value,
+      obs:document.getElementById('c-obs').value, assinatura:canvas.toDataURL(), dtRegistro:new Date().toISOString()
+    };
+    locacoes.push(loc);
+    save(KEYS.locacoes, locacoes);
+    const q=quads.find(x=>x.id==quadId);
+    if(q){q.km=parseFloat(kmSaida);q.status='locado';save(KEYS.quads,quads);}
+    document.getElementById('form-content').style.display='none';
+    document.getElementById('success-screen').classList.add('show');
+  });
+}
+
+function resetForm() {
+  document.getElementById('form-content').style.display='block';
+  document.getElementById('success-screen').classList.remove('show');
+  ['c-nome','c-cpf','c-nasc','c-tel','c-email','c-cep','c-end','c-cidade','c-uf','c-cnh','c-cnh-val','c-cnh-org','c-km-saida','c-valor','c-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('c-quad').value='';
+  document.getElementById('c-pgto').value='';
+  clearSig(); clearPhotos(); populateQuads();
+  const now=new Date(); const local=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('c-dt-saida').value=local;
+}
+
+window.addEventListener('load',()=>{
+  initSig();
+  populateQuads();
+  const now=new Date(); const local=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('c-dt-saida').value=local;
+});
+</script>
+</body>
+</html>
