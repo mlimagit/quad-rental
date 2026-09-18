@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -80,11 +81,15 @@
     <div class="app-header"><h1>🏍️ Quad Rental</h1><p>Painel Administrativo</p></div>
     <div class="login-screen">
       <div class="login-logo">🔐</div>
-      <div class="login-title">Acesso restrito</div>
-      <div class="login-sub">Digite a senha para continuar</div>
+      <div class="login-title" id="login-title">Acesso restrito</div>
+      <div class="login-sub" id="login-sub">Digite a senha para continuar</div>
       <div class="login-box">
-        <div class="field"><label>Senha</label><input type="password" id="senha-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
-        <button class="btn btn-primary" onclick="doLogin()">Entrar</button>
+        <div class="field"><label>Senha</label><input type="password" id="senha-input" placeholder="••••••••" onkeydown="if(event.key==='Enter'){document.getElementById('senha-confirm-wrap').style.display==='block'?document.getElementById('senha-confirm').focus():doLogin()}"></div>
+        <div class="field" id="senha-confirm-wrap" style="display:none">
+          <label>Confirme a senha</label>
+          <input type="password" id="senha-confirm" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <button class="btn btn-primary" onclick="doLogin()" id="login-btn">Entrar</button>
       </div>
     </div>
   </div>
@@ -93,7 +98,10 @@
   <div id="admin-wrap" style="display:none; flex-direction:column; flex:1">
     <div class="app-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px">
       <div><div style="font-size:16px;font-weight:700">🏍️ Quad Rental</div><div style="font-size:11px;opacity:0.7">Painel Admin</div></div>
-      <button onclick="doLogout()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">Sair</button>
+      <div style="display:flex;gap:6px">
+        <button onclick="changePassword()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">🔑</button>
+        <button onclick="doLogout()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">Sair</button>
+      </div>
     </div>
     <nav class="nav">
       <button class="nav-btn active" onclick="show('frota')" id="nav-frota"><span class="nav-icon">🏍️</span>Frota</button>
@@ -208,7 +216,6 @@
 
 <script>
 const KEYS = { quads: 'qr_quads', locacoes: 'qr_locacoes', despesas: 'qr_despesas' };
-const ADMIN_PASSWORD = 'quad2024'; // ← ALTERE ESTA SENHA
 let quads=[], locacoes=[], despesas=[];
 let currentLocacaoId=null;
 
@@ -218,22 +225,68 @@ function loadAll() {
   despesas=JSON.parse(localStorage.getItem(KEYS.despesas)||'[]');
 }
 function save(key,data){ localStorage.setItem(key,JSON.stringify(data)); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ---- SENHA (hash SHA-256 — nunca armazenada em texto puro; compartilhada com index.html) ----
+const PW_KEY = 'qr_admin_pw_hash';
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function setPassword(pw) { localStorage.setItem(PW_KEY, await sha256(pw)); }
+async function checkPassword(pw) { return localStorage.getItem(PW_KEY) === await sha256(pw); }
+function hasPasswordSet() { return !!localStorage.getItem(PW_KEY); }
 
 // ---- LOGIN ----
-function doLogin() {
+function updateLoginScreen() {
+  const creating = !hasPasswordSet();
+  document.getElementById('login-title').textContent = creating ? 'Criar senha de acesso' : 'Acesso restrito';
+  document.getElementById('login-sub').textContent = creating ? 'Defina uma senha para proteger o painel administrativo' : 'Digite a senha para continuar';
+  document.getElementById('senha-confirm-wrap').style.display = creating ? 'block' : 'none';
+  document.getElementById('login-btn').textContent = creating ? 'Criar senha' : 'Entrar';
+}
+async function doLogin() {
   const pw=document.getElementById('senha-input').value;
-  if(pw===ADMIN_PASSWORD){
-    localStorage.setItem('qr_admin_auth','1');
-    document.getElementById('login-wrap').style.display='none';
-    document.getElementById('admin-wrap').style.display='flex';
-    initAdmin();
+  if (!pw) { toast('⚠️ Digite uma senha'); return; }
+  if (!hasPasswordSet()) {
+    const confirma = document.getElementById('senha-confirm').value;
+    if (pw.length < 6) { toast('⚠️ A senha deve ter ao menos 6 caracteres'); return; }
+    if (pw !== confirma) { toast('❌ As senhas não coincidem'); return; }
+    await setPassword(pw);
+    toast('✅ Senha criada!');
+    enterAdmin();
+    return;
+  }
+  if (await checkPassword(pw)) {
+    enterAdmin();
   } else { toast('❌ Senha incorreta'); document.getElementById('senha-input').value=''; }
+}
+function enterAdmin() {
+  localStorage.setItem('qr_admin_auth','1');
+  document.getElementById('login-wrap').style.display='none';
+  document.getElementById('admin-wrap').style.display='flex';
+  document.getElementById('senha-input').value='';
+  document.getElementById('senha-confirm').value='';
+  initAdmin();
 }
 function doLogout() {
   localStorage.removeItem('qr_admin_auth');
   document.getElementById('admin-wrap').style.display='none';
   document.getElementById('login-wrap').style.display='block';
   document.getElementById('senha-input').value='';
+  updateLoginScreen();
+}
+async function changePassword() {
+  const atual = prompt('Digite a senha atual:');
+  if (atual === null) return;
+  if (!(await checkPassword(atual))) { toast('❌ Senha atual incorreta'); return; }
+  const nova = prompt('Digite a nova senha (mín. 6 caracteres):');
+  if (nova === null) return;
+  if (nova.length < 6) { toast('⚠️ A nova senha deve ter ao menos 6 caracteres'); return; }
+  const confirma = prompt('Confirme a nova senha:');
+  if (nova !== confirma) { toast('❌ As senhas não coincidem'); return; }
+  await setPassword(nova);
+  toast('✅ Senha alterada com sucesso!');
 }
 
 // ---- NAV ----
@@ -299,7 +352,7 @@ function renderFrota(){
     const loc=emLoc(q.id); const status=loc?'locado':q.status;
     const bc=status==='disponivel'?'badge-green':status==='locado'?'badge-amber':'badge-red';
     const bt=status==='disponivel'?'Disponível':status==='locado'?'Em locação':'Manutenção';
-    return `<div class="quad-item"><div class="quad-info"><div class="quad-name">${q.modelo}${q.cc?' ('+q.cc+')':''}</div><div class="quad-plate">${q.placa}${q.ano?' · '+q.ano:''} · ${q.km.toLocaleString('pt-BR')} km · <span class="badge ${bc}">${bt}</span></div></div><div style="display:flex;gap:6px"><button class="btn-sm" style="background:#f0f0f0;color:#555" onclick="toggleStatus(${q.id})">⚙️</button><button class="btn-sm" style="background:#FCEBEB;color:#A32D2D" onclick="deleteQuad(${q.id})">🗑️</button></div></div>`;
+    return `<div class="quad-item"><div class="quad-info"><div class="quad-name">${esc(q.modelo)}${q.cc?' ('+esc(q.cc)+')':''}</div><div class="quad-plate">${esc(q.placa)}${q.ano?' · '+esc(q.ano):''} · ${q.km.toLocaleString('pt-BR')} km · <span class="badge ${bc}">${bt}</span></div></div><div style="display:flex;gap:6px"><button class="btn-sm" style="background:#f0f0f0;color:#555" onclick="toggleStatus(${q.id})">⚙️</button><button class="btn-sm" style="background:#FCEBEB;color:#A32D2D" onclick="deleteQuad(${q.id})">🗑️</button></div></div>`;
   }).join('');
 }
 
@@ -329,14 +382,14 @@ function renderFinanceiro(){
     const rec=locacoes.filter(l=>l.quadId==q.id).reduce((s,l)=>s+(l.valor||0),0);
     const desp=despesas.filter(d=>d.quadId==q.id).reduce((s,d)=>s+(d.valor||0),0);
     const lq=rec-desp;
-    return `<div class="record"><div class="record-header"><span class="record-name">${q.modelo}</span><span class="badge ${lq>=0?'badge-green':'badge-red'}">${fmt(lq)}</span></div><div class="record-detail">Receita: ${fmt(rec)} · Despesas: ${fmt(desp)}</div></div>`;
+    return `<div class="record"><div class="record-header"><span class="record-name">${esc(q.modelo)}</span><span class="badge ${lq>=0?'badge-green':'badge-red'}">${fmt(lq)}</span></div><div class="record-detail">Receita: ${fmt(rec)} · Despesas: ${fmt(desp)}</div></div>`;
   }).join(''):'<p class="empty-state">Nenhum dado</p>';
   const dl=document.getElementById('f-despesas-list');
   const sd=[...despesas].sort((a,b)=>b.id-a.id).slice(0,8);
-  dl.innerHTML=sd.length?sd.map(d=>{const q=quads.find(x=>x.id==d.quadId);return `<div class="record"><div class="record-header"><span class="record-name">${d.tipo}</span><span class="red" style="font-weight:600">-${fmt(d.valor)}</span></div><div class="record-detail">${q?q.modelo:''} ${d.desc?'· '+d.desc:''} · ${d.data}</div></div>`;}).join(''):'<p class="empty-state">Nenhuma despesa</p>';
+  dl.innerHTML=sd.length?sd.map(d=>{const q=quads.find(x=>x.id==d.quadId);return `<div class="record"><div class="record-header"><span class="record-name">${esc(d.tipo)}</span><span class="red" style="font-weight:600">-${fmt(d.valor)}</span></div><div class="record-detail">${q?esc(q.modelo):''} ${d.desc?'· '+esc(d.desc):''} · ${esc(d.data)}</div></div>`;}).join(''):'<p class="empty-state">Nenhuma despesa</p>';
   const rl=document.getElementById('f-receitas-list');
   const sr=[...locacoes].sort((a,b)=>b.id-a.id).slice(0,8);
-  rl.innerHTML=sr.length?sr.map(l=>{const q=quads.find(x=>x.id==l.quadId);return `<div class="record"><div class="record-header"><span class="record-name">${l.nome}</span><span class="green" style="font-weight:600">+${fmt(l.valor)}</span></div><div class="record-detail">${q?q.modelo:''} · ${l.pgto||''} · ${new Date(l.dtSaida).toLocaleDateString('pt-BR')}</div></div>`;}).join(''):'<p class="empty-state">Nenhuma receita</p>';
+  rl.innerHTML=sr.length?sr.map(l=>{const q=quads.find(x=>x.id==l.quadId);return `<div class="record"><div class="record-header"><span class="record-name">${esc(l.nome)}</span><span class="green" style="font-weight:600">+${fmt(l.valor)}</span></div><div class="record-detail">${q?esc(q.modelo):''} · ${esc(l.pgto)||''} · ${new Date(l.dtSaida).toLocaleDateString('pt-BR')}</div></div>`;}).join(''):'<p class="empty-state">Nenhuma receita</p>';
 }
 
 // ---- HISTÓRICO ----
@@ -350,7 +403,7 @@ function renderHistorico(){
     const q=quads.find(x=>x.id==l.quadId);
     const status=l.kmRetorno?'<span class="badge badge-green">Devolvido</span>':'<span class="badge badge-amber">Em andamento</span>';
     const km=l.kmRetorno?`${l.kmSaida.toLocaleString()} → ${l.kmRetorno.toLocaleString()} km (+${(l.kmRetorno-l.kmSaida).toFixed(0)} km)`:`Saída: ${l.kmSaida.toLocaleString()} km`;
-    return `<div class="record" onclick="openDetalhes(${l.id})"><div class="record-header"><span class="record-name">${l.nome}</span>${status}</div><div class="record-detail">${q?q.modelo:'—'} · ${km}</div><div class="record-detail">${fmt(l.valor)} · ${l.pgto||''} · ${new Date(l.dtSaida).toLocaleDateString('pt-BR')}</div></div>`;
+    return `<div class="record" onclick="openDetalhes(${l.id})"><div class="record-header"><span class="record-name">${esc(l.nome)}</span>${status}</div><div class="record-detail">${q?esc(q.modelo):'—'} · ${esc(km)}</div><div class="record-detail">${fmt(l.valor)} · ${esc(l.pgto)||''} · ${new Date(l.dtSaida).toLocaleDateString('pt-BR')}</div></div>`;
   }).join('');
 }
 
@@ -360,11 +413,20 @@ function openDetalhes(id){
   const l=locacoes.find(x=>x.id==id); if(!l) return;
   const q=quads.find(x=>x.id==l.quadId);
   const content=document.getElementById('modal-detalhes-content');
+  const endereco = (() => {
+    const parts = [];
+    if (l.endereco) parts.push(l.endereco);
+    if (l.cidade) parts.push(l.uf ? l.cidade+'/'+l.uf : l.cidade);
+    else if (l.uf) parts.push(l.uf);
+    return parts.length ? parts.join(', ') : '—';
+  })();
+  const cnhTxt = (l.cnh || l.cnhCat) ? `${l.cnh||''}${l.cnhCat?' ('+l.cnhCat+')':''}`.trim() : '';
   const rows=[
     ['Locatário',l.nome],['CPF',l.cpf],['Nascimento',l.nasc?new Date(l.nasc+'T12:00:00').toLocaleDateString('pt-BR'):'—'],
     ['Telefone',l.tel],['E-mail',l.email||'—'],
-    ['Endereço',l.endereco+(l.cidade?', '+l.cidade:'')+(l.uf?'/'+l.uf:'')],
-    ['CNH',l.cnh+(l.cnhCat?' ('+l.cnhCat+')':'')],['Validade CNH',l.cnhVal?new Date(l.cnhVal+'T12:00:00').toLocaleDateString('pt-BR'):'—'],
+    ['Endereço/Cidade',endereco],
+    cnhTxt?['CNH',cnhTxt]:null,
+    l.cnhVal?['Validade CNH',new Date(l.cnhVal+'T12:00:00').toLocaleDateString('pt-BR')]:null,
     ['Quadriciclo',q?q.modelo+' — '+q.placa:'—'],
     ['Saída',new Date(l.dtSaida).toLocaleString('pt-BR')],
     ['Prev. retorno',l.dtRetornoPrev?new Date(l.dtRetornoPrev).toLocaleString('pt-BR'):'—'],
@@ -373,7 +435,7 @@ function openDetalhes(id){
     ['Valor',fmt(l.valor)],['Pagamento',l.pgto||'—'],
     l.obs?['Observações',l.obs]:null
   ].filter(Boolean);
-  content.innerHTML=rows.map(([k,v])=>`<div class="km-row"><span class="km-label">${k}</span><span class="km-val">${v}</span></div>`).join('');
+  content.innerHTML=rows.map(([k,v])=>`<div class="km-row"><span class="km-label">${esc(k)}</span><span class="km-val">${esc(v)}</span></div>`).join('');
   // Fotos CNH
   if(l.cnhFrente||l.cnhVerso){
     content.innerHTML+=`<div style="margin-top:12px"><p style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">📷 Fotos da CNH</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${l.cnhFrente?`<div><p style="font-size:11px;color:#888;margin-bottom:4px">Frente</p><img src="${l.cnhFrente}" style="width:100%;border-radius:8px;border:1px solid #eee"></div>`:''} ${l.cnhVerso?`<div><p style="font-size:11px;color:#888;margin-bottom:4px">Verso</p><img src="${l.cnhVerso}" style="width:100%;border-radius:8px;border:1px solid #eee"></div>`:''}</div></div>`;
@@ -413,10 +475,12 @@ function initAdmin(){
   document.getElementById('d-data').value=new Date().toISOString().slice(0,10);
 }
 window.addEventListener('load',()=>{
-  if(localStorage.getItem('qr_admin_auth')==='1'){
+  if(localStorage.getItem('qr_admin_auth')==='1' && hasPasswordSet()){
     document.getElementById('login-wrap').style.display='none';
     document.getElementById('admin-wrap').style.display='flex';
     initAdmin();
+  } else {
+    updateLoginScreen();
   }
 });
 </script>
